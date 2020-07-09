@@ -1,0 +1,163 @@
+﻿@page "/"
+
+@inject IHttpClientFactory _clientFactory
+
+	<h1 class="text-center">Should I Jog?</h1>
+
+	<div class="row justify-content-center m-2 p-1">
+		<input placeholder="Zipcode" @bind-value="_zipCode" />
+		<button @onclick="CallApi">Submit</button>
+	</div>
+
+	@if (string.IsNullOrWhiteSpace(errorString) == false)
+	{
+		<div class="h2">@errorString</div>
+	}
+	else if (forecast is null)
+	{
+		<div class="h4 text-center">Please enter a zipcode!</div>
+	}
+	else
+	{
+		<table class="table table-striped">
+			<thead class="thead-dark">
+				<tr>
+					<th>City</th>
+					<th>Temp (F&#176;)</th>
+					<th>Low (F&#176;)</th>
+					<th>High (F&#176;)</th>
+					<th>Conditions</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr>
+					<td>@forecast.Name</td>
+					<td>@fahrenheitTemp</td>
+					<td>@fahrenheitTempMin</td>
+					<td>@fahrenheitTempMax</td>
+					<td>@forecast.Weather[0].Main</td>
+				</tr>
+			</tbody>
+		</table>
+		<p>
+			The temperature is @fahrenheitTemp degrees Fahrenheit.
+		</p>
+		@if (poorConditionsPresent)
+		{
+			<p>
+				Conditions are poor.  Maybe no jogging today.
+			</p>
+		}
+		else if (cloudsPresent)
+		{
+			<p>
+				It's a little cloudy.
+			</p>
+		}
+
+
+		@if (!(poorConditionsPresent || chillyTemp || frigidTemp || hotTemp))
+		{
+		<p>
+			Conditions aren't bad at all!  Go jog!
+		</p>
+		}
+		
+		@if (chillyTemp)
+		{
+			<p>
+			The temperature is a little chilly.  You can still jog, but maybe throw on a long sleeve shirt?
+			</p>
+		}
+		else if (frigidTemp)
+		{
+			<p>
+			It's really cold out!  If you jog then bundle up!  
+			</p>
+		}
+		else if (hotTemp)
+		{
+			<p>
+				It's a bit hot.  Maybe wait until it cools to jog?  Stay hydrated and be careful.
+			</p>
+		}
+	
+	}
+
+
+	@code {
+
+		private string _zipCode;
+		WeatherForecastModel forecast;
+		string errorString;
+		string apiUrl = "http://api.openweathermap.org/data/2.5/weather?zip=";
+		string countryAndApiKey = ",us&appid=dfa7e1b9c728c4763b0c98674456fd17";
+		string zipCode;
+		double fahrenheitTemp;
+		double fahrenheitTempMin;
+		double fahrenheitTempMax;
+		string[] poorConditions = { "Thunderstorm", "Drizzle", "Rain", "Snow", "Tornado" };
+		string clouds = "Clouds";
+		Boolean poorConditionsPresent = false;
+		Boolean cloudsPresent = false;
+		string currentCondition;
+		Boolean chillyTemp = false;
+		Boolean frigidTemp = false;
+		Boolean hotTemp = false;
+
+
+		private async Task CallApi()
+		{
+			poorConditionsPresent = false;
+			cloudsPresent = false;
+			chillyTemp = false;
+			frigidTemp = false;
+			hotTemp = false;
+
+			string fullCall = apiUrl + _zipCode + countryAndApiKey;
+
+			var client = _clientFactory.CreateClient("meta");
+
+			try
+			{
+				forecast = await client.GetFromJsonAsync<WeatherForecastModel>(fullCall);
+				errorString = null;
+				fahrenheitTemp = Math.Round(((forecast.Main.Temp - 273.15) * 9 / 5 + 32), 2);
+				fahrenheitTempMin = Math.Round(((forecast.Main.Temp_min - 273.15) * 9 / 5 + 32), 2);
+				fahrenheitTempMax = Math.Round(((forecast.Main.Temp_max - 273.15) * 9 / 5 + 32), 2);
+
+				foreach (string condition in poorConditions)
+				{
+					if (condition.Equals(forecast.Weather[0].Main))
+					{
+						poorConditionsPresent = true;
+					}
+				}
+
+				if (forecast.Weather[0].Main.Equals(clouds))
+				{
+					cloudsPresent = true;
+				}
+
+				if (fahrenheitTemp <= 35)
+				{
+					frigidTemp = true;
+				}
+				else if (fahrenheitTemp <= 55)
+				{
+					chillyTemp = true;
+				}
+				else if (fahrenheitTemp >= 85)
+				{
+					hotTemp = true;
+				}
+			}
+			catch (Exception ex)
+			{
+				errorString = "Something went wrong.  Please enter a valid 5 digit US zipcode.";
+			}
+
+
+
+		}
+	}

@@ -1,0 +1,142 @@
+﻿@page "/weather"
+
+@inject IHttpClientFactory _clientFactory
+
+<h1>Should I Jog?</h1>
+
+<input placeholder="Zipcode" @bind-value="_zipCode"/>
+<button @onclick="CallApi">Submit</button>
+
+@if (string.IsNullOrWhiteSpace(errorString) == false)
+{
+	<div class="h2">@errorString</div>
+}
+else if (forecast is null)
+{
+	<div class="h4">Please enter a zipcode!</div>
+}
+else
+{
+<table class="table table-striped">
+	<thead class="thead-dark">
+		<tr>
+			<th>Temp (F&#176;)</th>
+			<th>Low (F&#176;)</th>
+			<th>High (F&#176;)</th>
+			<th>Conditions (F&#176;)</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr>
+			<td>@fahrenheitTemp</td>
+			<td>@fahrenheitTempMin</td>
+			<td>@fahrenheitTempMax</td>
+			<td>@forecast.Weather[0].Main</td>
+		</tr>
+	</tbody>
+</table>
+<p>
+	The temperature is @fahrenheitTemp degrees Fahrenheit.  
+</p>
+@if (poorConditionsPresent) 
+{
+	<p>
+		Current conditions for today are: @forecast.Weather[0].Main 
+	</p>
+	<p>
+		Conditions are poor.  Maybe no jogging today.
+	</p>
+}
+@if (cloudsPresent)
+{
+	<p>
+		Current conditions for today are: @forecast.Weather[0].Main
+	</p>
+	<p>
+		That's not bad at all!  Go jog!
+	</p>
+}
+}
+
+
+@code {
+
+	private string _zipCode;
+	WeatherForecastModel forecast;
+	string errorString;
+	string apiUrl = "http://api.openweathermap.org/data/2.5/weather?zip=";
+	string countryAndApiKey = ",us&appid=dfa7e1b9c728c4763b0c98674456fd17";
+	string zipCode;
+	double fahrenheitTemp;
+	double fahrenheitTempMin;
+	double fahrenheitTempMax;
+	string[] poorConditions = {"Thunderstorm","Drizzle", "Rain", "Snow", "Tornado"};
+	string clouds = "Clouds";
+	Boolean poorConditionsPresent = false;
+	Boolean cloudsPresent = false;
+	string currentCondition;
+
+
+	//string fullCall = "53718,us&appid=dfa7e1b9c728c4763b0c98674456fd17";
+	//string zipCode = "53718";
+	//string countryCodeAndApiKey = ",us&appid=dfa7e1b9c728c4763b0c98674456fd17";
+
+	private async Task CallApi()
+	{
+		//var client = _clientFactory.CreateClient("meta");
+
+		//try
+		//{
+		//	forecast = await client.GetFromJsonAsync<WeatherForecastModel>(fullCall);
+		//	errorString = null;
+		//}
+		//catch (Exception ex)
+		//{
+		//	errorString = $"There was an error getting the forecast: {ex.Message}";
+		//}
+		poorConditionsPresent = false;
+		cloudsPresent = false;
+		string fullCall = apiUrl + _zipCode + countryAndApiKey;
+
+		var client = _clientFactory.CreateClient("meta");
+
+		try
+		{
+			forecast = await client.GetFromJsonAsync<WeatherForecastModel>(fullCall);
+			errorString = null;
+			fahrenheitTemp = Math.Round(((forecast.Main.Temp - 273.15) * 9 / 5 + 32),2);
+			fahrenheitTempMin = Math.Round(((forecast.Main.Temp_min - 273.15) * 9 / 5 + 32), 2);
+			fahrenheitTempMax = Math.Round(((forecast.Main.Temp_max - 273.15) * 9 / 5 + 32), 2);
+
+			foreach (string condition in poorConditions)
+			{
+				//foreach (var w in forecast.Weather) {
+
+				//	if (condition.Equals(w.Main))
+				//	{
+				//		poorConditionsPresent = true;
+				//	}
+				//}
+				if (condition.Equals(forecast.Weather[0].Main))
+				{
+					poorConditionsPresent = true;
+				}
+			}
+
+			if (forecast.Weather[0].Main.Equals(clouds))
+			{
+				cloudsPresent = true;
+			}
+
+		}
+		catch (Exception ex)
+		{
+			errorString = $"There was an error getting the forecast: {ex.Message}";
+		}
+
+
+
+	}
+
+
+}
